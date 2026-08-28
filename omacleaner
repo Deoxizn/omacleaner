@@ -1,0 +1,308 @@
+#!/bin/bash
+
+# omacleaner - selectively remove preinstalled Omarchy apps
+#
+# The stock `omarchy-remove-preinstalls` is all-or-nothing. This tool instead
+# auto-discovers what is actually installed/removable and lets you pick
+# (space to toggle, enter to confirm) exactly what you want gone.
+#
+# Nothing is removed until you confirm the summary. The global
+# `preinstalls-removed` opt-out flag is intentionally left alone so the
+# stock all-or-nothing tool keeps working for you unchanged.
+
+set -euo pipefail
+
+cd "$HOME"
+
+DESKTOP_DIR="$HOME/.local/share/applications"
+ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
+OLD_ICON_DIR="$HOME/.local/share/applications/icons"
+STUB_DIR="$HOME/.local/bin"
+
+# Mirrors the removable-package list in omarchy-remove-preinstalls
+REMOVABLE_PKGS=(
+  aether cliamp libreoffice-fresh xournalpp pinta obsidian
+  obs-studio kdenlive moonlight-qt lazydocker omacut omacalc omawrite
+)
+
+# Mirrors the mise/agent stubs removed by omarchy-remove-preinstalls
+REMOVABLE_STUBS=(
+  codex claude agy copilot gh opencode playwright playwright-cli pi
+  omp ori grok crush ghui hunk
+)
+
+say()  { printf '%s\n' "$*"; }
+die()  { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
+title(){ printf '\033[1;36m%s\033[0m\n' "$*"; }
+
+# ---------------------------------------------------------------------------
+# Discovery
+# ---------------------------------------------------------------------------
+
+declare -a ITEMS=()              # display labels
+declare -a TYPE=()               # webapp | tui | pkg | stub
+declare -a TARGET=()             # launcher name / package / stub name
+declare -a ICON=()               # icon basename (for webapp/tui), empty otherwise
+
+index_webapps() {
+  local file
+  while IFS= read -r -d '' file; do
+    local name
+    name="$(basename "$file" .desktop)"
+    ITEMS+=("$name")
+    TYPE+=(webapp)
+    TARGET+=("$name")
+    ICON+=("$(printf '%s\n' "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^[:alnum:]]\+/-/g; s/^-//; s/-$//')")
+  done < <(find "$DESKTOP_DIR" -maxdepth 1 -name '*.desktop' -print0 2>/dev/null \
+      | while IFS= read -r -d '' f; do
+          grep -qE '^Exec=.*(omarchy-launch-webapp|omarchy-webapp-handler)' "$f" && printf '%s\0' "$f"
+          true
+        done)
+}
+
+index_tuis() {
+  local file
+  while IFS= read -r -d '' file; do
+    local name
+    name="$(basename "$file" .desktop)"
+    ITEMS+=("$name")
+    TYPE+=(tui)
+    TARGET+=("$name")
+    ICON+=("$(printf '%s\n' "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^[:alnum:]]\+/-/g; s/^-//; s/-$//')")
+  done < <(find "$DESKTOP_DIR" -maxdepth 1 -name '*.desktop' -print0 2>/dev/null \
+      | while IFS= read -r -d '' f; do
+          grep -qE '^Exec=.*xdg-terminal-exec.*--app-id=TUI\.' "$f" && printf '%s\0' "$f"
+          true
+        done)
+}
+
+index_packages() {
+  local pkg
+  if ! command -v pacman >/dev/null 2>&1; then return; fi
+  local installed_list
+  installed_list="$(pacman -Qq 2>/dev/null)"
+  for pkg in "${REMOVABLE_PKGS[@]}"; do
+    if grep -qx "$pkg" <<<"$installed_list"; then
+      ITEMS+=("$pkg")
+      TYPE+=(pkg)
+      TARGET+=("$pkg")
+      ICON+=("")
+    fi
+  done
+}
+
+index_stubs() {
+  local s
+  for s in "${REMOVABLE_STUBS[@]}"; do
+    if [[ -e "$STUB_DIR/$s" ]]; then
+      ITEMS+=("$s (mise stub)")
+      TYPE+=(stub)
+      TARGET+=("$s")
+      ICON+=("")
+    fi
+  done
+}
+
+remove_webapp() {
+  omarchy-webapp-remove "$1" >/dev/null 2>&1 || true
+  rm -f "$DESKTOP_DIR/$1.desktop" "$ICON_DIR/$1.png" "$OLD_ICON_DIR/$1.png"
+  update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+}
+
+remove_tui() {
+  omarchy-tui-remove "$1" >/dev/null 2>&1 || true
+  rm -f "$DESKTOP_DIR/$1.desktop" "$ICON_DIR/$1.png" "$OLD_ICON_DIR/$1.png"
+  update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+}
+
+remove_pkg() {
+  if command -v omarchy-pkg-drop >/dev/null 2>&1; then
+    omarchy-pkg-drop "$1"
+  else
+    sudo pacman -Rns --noconfirm "$1" || true
+  fi
+}
+
+remove_stub() {
+  rm -f "$STUB_DIR/$1"
+}
+
+do_remove() {
+  local i
+  for i in "$@"; do
+    # $i is a display label; map it back to its index
+    local n=0 disp
+    for disp in "${ITEMS[@]}"; do
+      [[ "$disp" == "$i" ]] && break
+      n=$((n + 1))
+    done
+    local t="${TYPE[$n]}" target="${TARGET[$n]}" ic="${ICON[$n]}"
+    case "$t" in
+      webapp) printf '  Removing web app: '; remove_webapp "$target"; say "$target" ;;
+      tui)    printf '  Removing TUI:     '; remove_tui "$target";    say "$target" ;;
+      pkg)    printf '  Removing package: '; remove_pkg "$target";    say "$target" ;;
+      stub)   printf '  Removing stub:    '; remove_stub "$target";   say "$target" ;;
+    esac
+  done
+}
+
+# ---------------------------------------------------------------------------
+# App install / uninstall (launcher + icon + binary)
+# ---------------------------------------------------------------------------
+
+BIN_DIR="$HOME/.local/bin"
+SELF="$(realpath "$0")"
+SELF_DIR="$(dirname "$SELF")"
+DEST_BIN="$BIN_DIR/omacleaner"
+DESKTOP_FILE="$DESKTOP_DIR/omacleaner.desktop"
+ICON_FILE="$ICON_DIR/omacleaner.png"
+
+write_desktop() {
+  mkdir -p "$DESKTOP_DIR"
+  cat > "$DESKTOP_FILE" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=OmaCleaner
+Comment=Selectively remove preinstalled Omarchy apps
+Exec=omacleaner
+Icon=omacleaner
+Terminal=true
+Categories=System;Utility;
+Keywords=omarchy;clean;remove;uninstall;
+Actions=uninstall;
+
+[Desktop Action uninstall]
+Name=Uninstall OmaCleaner
+Exec=omacleaner --uninstall
+Icon=omacleaner
+EOF
+  chmod +x "$DESKTOP_FILE"
+}
+
+do_install() {
+  local icon_src=""
+  [[ -f "$SELF_DIR/assets/omacleaner.png" ]] && icon_src="$SELF_DIR/assets/omacleaner.png"
+  [[ -z $icon_src && -f "$SELF_DIR/omacleaner.png" ]] && icon_src="$SELF_DIR/omacleaner.png"
+
+  # Copy the binary if this isn't already the installed copy
+  if [[ "$SELF" != "$DEST_BIN" ]]; then
+    mkdir -p "$BIN_DIR"
+    install -m755 "$SELF" "$DEST_BIN"
+  fi
+
+  # Install the icon if we have a source, or if one isn't already in place
+  if [[ -n $icon_src ]]; then
+    mkdir -p "$ICON_DIR"
+    install -m644 "$icon_src" "$ICON_FILE"
+  elif [[ ! -f "$ICON_FILE" ]]; then
+    say "WARNING: no icon found next to the script; skipping icon install."
+  fi
+
+  write_desktop
+  update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+  gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+
+  say "OmaCleaner installed."
+  say "  launcher:  $DESKTOP_FILE"
+  say "  icon:      $ICON_FILE"
+  say "  binary:    $DEST_BIN"
+  say "Find it in your app launcher (SUPER + SPACE), right-click it to uninstall."
+}
+
+do_uninstall() {
+  gum confirm "Uninstall OmaCleaner? This removes its launcher, icon, and ~/.local/bin/omacleaner." || { say "Cancelled."; exit 0; }
+
+  rm -f "$DESKTOP_FILE" "$ICON_FILE" "$DEST_BIN"
+  update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+  gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+
+  say "OmaCleaner uninstalled. The optional-install packages are untouched."
+}
+
+usage() {
+  cat <<'EOF'
+Usage: omacleaner [command]
+
+(no command)   Open the interactive removal checklist
+--install      Install OmaCleaner as an app (launcher + icon + ~/.local/bin)
+--uninstall    Remove the OmaCleaner app + icon + binary
+-h, --help     Show this help
+EOF
+}
+
+case "${1:-}" in
+  --install)   do_install; exit 0 ;;
+  --uninstall) do_uninstall; exit 0 ;;
+  -h|--help)   usage; exit 0 ;;
+esac
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+title "OmaCleaner — selective preinstalled-app remover"
+
+index_webapps
+index_tuis
+index_packages
+index_stubs
+
+if (( ${#ITEMS[@]} == 0 )); then
+  say "Nothing removable found — no web apps, TUIs, removable packages, or mise stubs are present."
+  exit 0
+fi
+
+# Sort ITEMS and keep companion arrays in sync
+mapfile -t order < <(awk -v n="${#ITEMS[@]}" 'BEGIN{for(i=1;i<=n;i++)print i-1}')
+readarray -t order < <(for idx in "${order[@]}"; do
+  printf '%s\t%s\n' "${ITEMS[$idx]}" "$idx"
+done | sort -f | cut -f2)
+
+declare -a s_items=() s_type=() s_target=() s_icon=()
+for idx in "${order[@]}"; do
+  s_items+=("${ITEMS[$idx]}")
+  s_type+=("${TYPE[$idx]}")
+  s_target+=("${TARGET[$idx]}")
+  s_icon+=("${ICON[$idx]}")
+done
+ITEMS=("${s_items[@]}"); TYPE=("${s_type[@]}"); TARGET=("${s_target[@]}"); ICON=("${s_icon[@]}")
+
+# Fill most of the terminal so more rows fit at once; clamp so tiny/gigantic
+# terminals still behave. gum scrolls when there are more items than this.
+term_lines="$(tput lines 2>/dev/null || printf '24')"
+choose_height=$((term_lines - 6))
+(( choose_height < 8 )) && choose_height=8
+(( choose_height > 42 )) && choose_height=42
+
+say ""
+say "  $(printf '%d' ${#ITEMS[@]}) item(s) available. Use SPACE to select, TAB to move, ENTER to continue."
+say "  Down/Up to navigate, / to filter. Nothing is removed yet."
+say ""
+
+selection=$(gum choose --no-limit --height "$choose_height" --show-help \
+  --header "Select what to REMOVE — $(printf '%d' ${#ITEMS[@]}) items (SPACE = toggle)" \
+  "${ITEMS[@]}")
+
+if [[ -z $selection ]]; then
+  say "No selection made. Exiting."
+  exit 0
+fi
+
+say ""
+say "You are about to remove:"
+for item in $selection; do say "  - $item"; done
+say ""
+
+if ! gum confirm "Remove these items? This uses sudo for packages."; then
+  say "Cancelled. Nothing was removed."
+  exit 0
+fi
+
+say ""
+say "Removing..."
+mapfile -t sel_arr <<<"$selection"
+do_remove "${sel_arr[@]}"
+
+say ""
+title "Done. Removed $(printf '%d' ${#sel_arr[@]}) item(s)."
+say "If you changed any Hyprland keybindings tied to removed apps, reload with: hyprctl reload"
