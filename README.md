@@ -28,19 +28,19 @@ you can keep exactly what you want and drop precisely the rest.
 
 ## Install
 
-### As a command
+### Recommended (from a clone)
 
 ```bash
 git clone https://github.com/Deoxizn/omacleaner.git
 cd omacleaner
-./omacleaner --install     # copies binary to ~/.local/bin, adds launcher + icon
+./install.sh               # ← preferred: installs binary + icon + launcher
+# or equivalently:
+./omacleaner --install     # same result
 ```
 
-Or manually, just the binary:
-
-```bash
-install -Dm755 omacleaner ~/.local/bin/omacleaner
-```
+> **Note:** a plain `cp`/`install` of the binary alone (e.g. `install -Dm755 omacleaner ~/.local/bin/omacleaner`)
+> will make the terminal command work, but it **won't** install the desktop icon/launcher.
+> Always use `./install.sh` or `./omacleaner --install` after a `git pull` to get the icon.
 
 ### App launcher (desktop entry)
 

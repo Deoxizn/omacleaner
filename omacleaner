@@ -12,7 +12,26 @@
 
 set -euo pipefail
 
-cd "$HOME"
+# Resolve own location BEFORE changing directory.
+# Handles: ./omacleaner, bash omacleaner, and PATH lookup (omacleaner).
+_SRC="${BASH_SOURCE[0]:-$0}"
+if [[ "$_SRC" != /* ]]; then
+  if [[ "$_SRC" == *"/"* ]]; then
+    _SRC="$(pwd)/$_SRC"
+  else
+    _SRC="$(command -v "$_SRC" 2>/dev/null || echo "$_SRC")"
+    [[ "$_SRC" != /* ]] && _SRC="$(pwd)/$_SRC"
+  fi
+fi
+if command -v realpath >/dev/null 2>&1; then
+  SELF="$(realpath "$_SRC" 2>/dev/null || echo "$_SRC")"
+else
+  SELF="$(readlink -f "$_SRC" 2>/dev/null || echo "$_SRC")"
+fi
+SELF_DIR="$(dirname "$SELF")"
+unset _SRC
+
+cd "$HOME" || true
 
 DESKTOP_DIR="$HOME/.local/share/applications"
 ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
@@ -151,8 +170,6 @@ do_remove() {
 # ---------------------------------------------------------------------------
 
 BIN_DIR="$HOME/.local/bin"
-SELF="$(realpath "$0")"
-SELF_DIR="$(dirname "$SELF")"
 DEST_BIN="$BIN_DIR/omacleaner"
 DESKTOP_FILE="$DESKTOP_DIR/omacleaner.desktop"
 ICON_FILE="$ICON_DIR/omacleaner.png"
@@ -182,7 +199,14 @@ EOF
 do_install() {
   local icon_src=""
   [[ -f "$SELF_DIR/assets/omacleaner.png" ]] && icon_src="$SELF_DIR/assets/omacleaner.png"
-  [[ -z $icon_src && -f "$SELF_DIR/omacleaner.png" ]] && icon_src="$SELF_DIR/omacleaner.png"
+  [[ -z "$icon_src" ]] && [[ -f "$SELF_DIR/omacleaner.png" ]] && icon_src="$SELF_DIR/omacleaner.png"
+  # Fallback: when run from the installed copy (~/.local/bin) after a manual
+  # copy, the assets won't be next to the binary — look in common clone locations.
+  if [[ -z "$icon_src" ]]; then
+    for cand in "$HOME/Work/omacleaner/assets/omacleaner.png" "$HOME/omacleaner/assets/omacleaner.png" "$PWD/assets/omacleaner.png"; do
+      [[ -f "$cand" ]] && icon_src="$cand" && break
+    done
+  fi
 
   # Copy the binary if this isn't already the installed copy
   if [[ "$SELF" != "$DEST_BIN" ]]; then
@@ -196,6 +220,7 @@ do_install() {
     install -m644 "$icon_src" "$ICON_FILE"
   elif [[ ! -f "$ICON_FILE" ]]; then
     say "WARNING: no icon found next to the script; skipping icon install."
+    say "         Fix: run ./install.sh from the repo, or git pull and re-run ./omacleaner --install"
   fi
 
   write_desktop
