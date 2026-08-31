@@ -200,13 +200,6 @@ do_install() {
   local icon_src=""
   [[ -f "$SELF_DIR/assets/omacleaner.png" ]] && icon_src="$SELF_DIR/assets/omacleaner.png"
   [[ -z "$icon_src" ]] && [[ -f "$SELF_DIR/omacleaner.png" ]] && icon_src="$SELF_DIR/omacleaner.png"
-  # Fallback: when run from the installed copy (~/.local/bin) after a manual
-  # copy, the assets won't be next to the binary — look in common clone locations.
-  if [[ -z "$icon_src" ]]; then
-    for cand in "$HOME/Work/omacleaner/assets/omacleaner.png" "$HOME/omacleaner/assets/omacleaner.png" "$PWD/assets/omacleaner.png"; do
-      [[ -f "$cand" ]] && icon_src="$cand" && break
-    done
-  fi
 
   # Copy the binary if this isn't already the installed copy
   if [[ "$SELF" != "$DEST_BIN" ]]; then
@@ -214,13 +207,14 @@ do_install() {
     install -m755 "$SELF" "$DEST_BIN"
   fi
 
-  # Install the icon if we have a source, or if one isn't already in place
+  # Install the icon if we have a source; otherwise keep the existing one in
+  # ~/.local if present (so re-running --install from the installed copy is idempotent).
   if [[ -n $icon_src ]]; then
     mkdir -p "$ICON_DIR"
     install -m644 "$icon_src" "$ICON_FILE"
   elif [[ ! -f "$ICON_FILE" ]]; then
     say "WARNING: no icon found next to the script; skipping icon install."
-    say "         Fix: run ./install.sh from the repo, or git pull and re-run ./omacleaner --install"
+    say "         Fix: clone fresh and run ./install.sh, or re-run ./omacleaner --install from the repo."
   fi
 
   write_desktop
