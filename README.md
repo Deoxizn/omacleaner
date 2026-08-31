@@ -28,34 +28,42 @@ you can keep exactly what you want and drop precisely the rest.
 
 ## Install
 
-### Recommended (from a clone)
+Clone **anywhere** — no `~/Work` needed. Everything is installed to `~/.local` for uniformity, and the clone can be removed after.
 
 ```bash
 git clone https://github.com/Deoxizn/omacleaner.git
-cd omacleaner
-./install.sh               # ← preferred: installs binary + icon + launcher
+cd omacleaner              # any location is fine
+./install.sh               # ← preferred: binary + icon + launcher → ~/.local
 # or equivalently:
 ./omacleaner --install     # same result
 ```
 
-> **Note:** a plain `cp`/`install` of the binary alone (e.g. `install -Dm755 omacleaner ~/.local/bin/omacleaner`)
-> will make the terminal command work, but it **won't** install the desktop icon/launcher.
-> Always use `./install.sh` or `./omacleaner --install` after a `git pull` to get the icon.
+**What gets installed** (all under `~/.local`):
 
-### App launcher (desktop entry)
+- `~/.local/bin/omacleaner`
+- `~/.local/share/applications/omacleaner.desktop` (shows in app launcher, `Terminal=true`)
+- `~/.local/share/icons/hicolor/256x256/apps/omacleaner.png` (mop icon)
 
-`--install` creates `~/.local/share/applications/omacleaner.desktop` with the bundled
-mop icon and `Terminal=true`, so it shows up in your app launcher (SUPER + SPACE).
-You can launch it as many times as you like — every run opens a fresh checklist.
+The launcher appears in your app launcher (SUPER + SPACE) and can be run many times — each launch opens a fresh checklist.
 
-To undo:
+**Updating** after a `git pull`:
 
 ```bash
-omacleaner --uninstall     # removes launcher, icon, and ~/.local/bin copy
+git pull
+./install.sh               # re-installs to ~/.local
 ```
 
-`--uninstall` is also available as a desktop action, so you can right-click the
-OmaCleaner entry in your launcher and pick "Uninstall" there too.
+> **Note:** a plain `cp`/`install` of the binary alone (e.g. `install -Dm755 omacleaner ~/.local/bin/omacleaner`)
+> will make the terminal command work, but it **won't** install the icon/launcher.
+> Always use `./install.sh` or `./omacleaner --install` from the clone.
+
+**Uninstall** (removes all three from `~/.local`):
+
+```bash
+omacleaner --uninstall
+```
+
+Also available as a desktop action: right-click the OmaCleaner entry in your launcher → Uninstall.
 
 ## How the listing works
 
