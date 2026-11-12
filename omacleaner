@@ -307,9 +307,11 @@ if [[ -z $selection ]]; then
   exit 0
 fi
 
+mapfile -t sel_arr <<<"$selection"
+
 say ""
 say "You are about to remove:"
-for item in $selection; do say "  - $item"; done
+for item in "${sel_arr[@]}"; do say "  - $item"; done
 say ""
 
 if ! gum confirm "Remove these items? This uses sudo for packages."; then
@@ -319,7 +321,6 @@ fi
 
 say ""
 say "Removing..."
-mapfile -t sel_arr <<<"$selection"
 do_remove "${sel_arr[@]}"
 
 say ""
