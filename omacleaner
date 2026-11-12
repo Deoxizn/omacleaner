@@ -39,12 +39,14 @@ OLD_ICON_DIR="$HOME/.local/share/applications/icons"
 STUB_DIR="$HOME/.local/bin"
 
 # Mirrors the removable-package list in omarchy-remove-preinstalls, plus the
-# newer 4.5 defaults the stock tool doesn't list yet (omasnap, gliff,
-# disktree-bin, gnome-disk-utility).
+# newer 4.5 defaults the stock tool doesn't list yet (gliff, disktree-bin,
+# gnome-disk-utility). Omasnap is deliberately excluded: it's the default
+# screenshot handler (PRINT calls omarchy-capture-screenshot, which execs
+# omasnap), so removing it would break screenshots.
 REMOVABLE_PKGS=(
   aether cliamp libreoffice-fresh xournalpp pinta obsidian
   obs-studio kdenlive moonlight-qt lazydocker omacut omacalc omawrite
-  omasnap gliff disktree-bin gnome-disk-utility
+  gliff disktree-bin gnome-disk-utility
 )
 
 # Mirrors the mise/agent stubs removed by omarchy-remove-preinstalls

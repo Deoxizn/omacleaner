@@ -37,7 +37,7 @@ out.
 - **Auto-discovery** — scans what is actually installed rather than assuming:
   - **Web apps** (Discord, WhatsApp, Zoom, Basecamp, …) from `~/.local/share/applications`
   - **TUIs** (Disk Usage, Docker, …) from the same launcher directory
-  - **Removable packages** (`libreoffice-fresh`, `obsidian`, `kdenlive`, `obs-studio`, `moonlight-qt`, `pinta`, `xournalpp`, `aether`, `cliamp`, `lazydocker`, `omacut`, `omacalc`, `omawrite`, plus the newer 4.5 defaults `omasnap`, `gliff`, `disktree-bin`, `gnome-disk-utility`) — but *only* the ones currently installed
+  - **Removable packages** (`libreoffice-fresh`, `obsidian`, `kdenlive`, `obs-studio`, `moonlight-qt`, `pinta`, `xournalpp`, `aether`, `cliamp`, `lazydocker`, `omacut`, `omacalc`, `omawrite`, plus the newer 4.5 defaults `gliff`, `disktree-bin`, `gnome-disk-utility`) — but *only* the ones currently installed. `omasnap` is deliberately left out: it's what the screenshot keys call.
   - **AI / mise stubs** (`claude`, `gh`, `opencode`, `grok`, `copilot`, `pi`, `grok`, …) — again, only if present
 - **Space-to-toggle checklist** with a filter, built on [`gum`](https://github.com/charmbracelet/gum) (already bundled with Omarchy — no new dependencies).
 - **Confirm-before-you-commit** — shows a summary and asks for confirmation before removing anything.
@@ -140,9 +140,6 @@ Also available as a desktop action: right-click the OmaCleaner entry in your lau
 - The tool never touches `~/.local/state/omarchy/preinstalls-removed`, so the
   stock all-or-nothing remove (`omarchy-remove-preinstalls`) and restore
   (`omarchy-install-preinstalls`) behavior is preserved.
-- Removing `omasnap` breaks the default screenshot keys (PRINT and
-  SUPER + CTRL + ALT + C run `omarchy-capture-screenshot`, which calls
-  `omasnap`) until you rebind them or reinstall it.
 
 ## License
 
