@@ -38,10 +38,13 @@ ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
 OLD_ICON_DIR="$HOME/.local/share/applications/icons"
 STUB_DIR="$HOME/.local/bin"
 
-# Mirrors the removable-package list in omarchy-remove-preinstalls
+# Mirrors the removable-package list in omarchy-remove-preinstalls, plus the
+# newer 4.5 defaults the stock tool doesn't list yet (omasnap, gliff,
+# disktree-bin, gnome-disk-utility).
 REMOVABLE_PKGS=(
   aether cliamp libreoffice-fresh xournalpp pinta obsidian
   obs-studio kdenlive moonlight-qt lazydocker omacut omacalc omawrite
+  omasnap gliff disktree-bin gnome-disk-utility
 )
 
 # Mirrors the mise/agent stubs removed by omarchy-remove-preinstalls
