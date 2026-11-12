@@ -140,6 +140,9 @@ Also available as a desktop action: right-click the OmaCleaner entry in your lau
 - The tool never touches `~/.local/state/omarchy/preinstalls-removed`, so the
   stock all-or-nothing remove (`omarchy-remove-preinstalls`) and restore
   (`omarchy-install-preinstalls`) behavior is preserved.
+- Removing `omasnap` breaks the default screenshot keys (PRINT and
+  SUPER + CTRL + ALT + C run `omarchy-capture-screenshot`, which calls
+  `omasnap`) until you rebind them or reinstall it.
 
 ## License
 
